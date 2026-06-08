@@ -1,0 +1,907 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+// ═══════════════════════════════════════════════════════════════
+// INDEXEDDB
+// ═══════════════════════════════════════════════════════════════
+const DB_NAME = "BeleskePWA_v2";
+const DB_VER  = 1;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("data")) db.createObjectStore("data");
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror   = () => rej(r.error);
+  });
+}
+async function dbGet(key) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction("data","readonly").objectStore("data").get(key);
+    r.onsuccess = () => res(r.result ?? null);
+    r.onerror   = () => rej(r.error);
+  });
+}
+async function dbSet(key, val) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const r = db.transaction("data","readwrite").objectStore("data").put(val, key);
+    r.onsuccess = () => res();
+    r.onerror   = () => rej(r.error);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// THEMES
+// ═══════════════════════════════════════════════════════════════
+const THEMES = {
+  light: {
+    id: "light", label: "Svetla",
+    bg: "linear-gradient(145deg, #f0f4ff 0%, #e8eeff 50%, #f5f0ff 100%)",
+    surface: "rgba(255,255,255,0.85)",
+    surfaceBorder: "rgba(200,210,255,0.6)",
+    text: "#1a1f3c",
+    textSub: "#6b7280",
+    textPlaceholder: "#9ca3af",
+    inputBg: "rgba(255,255,255,0.9)",
+    inputBorder: "rgba(180,190,255,0.5)",
+    cardLicno: "linear-gradient(145deg,#1a2a6c,#1e3a8a,#1e40af)",
+    cardDokumenta: "linear-gradient(145deg,#1a2a6c,#1e3a8a,#2563eb)",
+    glowLicno: "rgba(59,130,246,0.45)",
+    glowDokumenta: "rgba(234,88,12,0.5)",
+    btnDelete: "linear-gradient(145deg,#dc2626,#b91c1c,#991b1b)",
+    btnSave: "linear-gradient(145deg,#16a34a,#15803d,#166534)",
+    glowDelete: "rgba(220,38,38,0.5)",
+    glowSave: "rgba(22,163,74,0.5)",
+    toolBg: "rgba(255,255,255,0.9)",
+    toolBorder: "rgba(180,190,255,0.5)",
+    toolGlow: "rgba(99,102,241,0.3)",
+    statusBar: "rgba(255,255,255,0.7)",
+    charCounter: "#6b7280",
+    fontSizeBtnBg: "rgba(240,244,255,0.9)",
+    fontSizeBtnBorder: "rgba(180,190,255,0.5)",
+    blob1: "rgba(99,102,241,0.12)",
+    blob2: "rgba(251,146,60,0.1)",
+    blob3: "rgba(167,139,250,0.08)",
+    switcherBg: "rgba(255,255,255,0.85)",
+    switcherBorder: "rgba(200,210,255,0.6)",
+  },
+  dark: {
+    id: "dark", label: "Tamno Plava",
+    bg: "linear-gradient(160deg,#07111f 0%,#0b1628 60%,#061020 100%)",
+    surface: "rgba(11,22,40,0.92)",
+    surfaceBorder: "rgba(30,100,255,0.25)",
+    text: "#e2e8f0",
+    textSub: "#64748b",
+    textPlaceholder: "#334155",
+    inputBg: "rgba(7,17,31,0.95)",
+    inputBorder: "rgba(30,100,255,0.3)",
+    cardLicno: "linear-gradient(145deg,#0d1f3c,#0f2a50,#0a1f40)",
+    cardDokumenta: "linear-gradient(145deg,#0d1f3c,#0f2a50,#0a1f40)",
+    glowLicno: "rgba(30,100,255,0.55)",
+    glowDokumenta: "rgba(234,88,12,0.55)",
+    btnDelete: "linear-gradient(145deg,#dc2626,#b91c1c,#7f1d1d)",
+    btnSave: "linear-gradient(145deg,#16a34a,#15803d,#14532d)",
+    glowDelete: "rgba(220,38,38,0.6)",
+    glowSave: "rgba(22,163,74,0.6)",
+    toolBg: "rgba(11,22,40,0.9)",
+    toolBorder: "rgba(30,100,255,0.3)",
+    toolGlow: "rgba(30,100,255,0.35)",
+    statusBar: "rgba(7,17,31,0.8)",
+    charCounter: "#475569",
+    fontSizeBtnBg: "rgba(11,22,40,0.9)",
+    fontSizeBtnBorder: "rgba(30,100,255,0.3)",
+    blob1: "rgba(30,100,255,0.08)",
+    blob2: "rgba(234,88,12,0.06)",
+    blob3: "rgba(30,100,255,0.05)",
+    switcherBg: "rgba(11,22,40,0.92)",
+    switcherBorder: "rgba(30,100,255,0.3)",
+  },
+  neon: {
+    id: "neon", label: "Premium Neon",
+    bg: "linear-gradient(135deg,#0a0518 0%,#0d0b2e 30%,#0a0f2e 60%,#12051a 100%)",
+    surface: "rgba(20,10,50,0.85)",
+    surfaceBorder: "rgba(139,92,246,0.4)",
+    text: "#f1f5f9",
+    textSub: "#94a3b8",
+    textPlaceholder: "#4a3060",
+    inputBg: "rgba(10,5,24,0.95)",
+    inputBorder: "rgba(139,92,246,0.4)",
+    cardLicno: "linear-gradient(145deg,#1a0540,#2d0f6b,#1a0a50)",
+    cardDokumenta: "linear-gradient(145deg,#2a0a10,#4a1020,#200510)",
+    glowLicno: "rgba(139,92,246,0.7)",
+    glowDokumenta: "rgba(236,72,153,0.7)",
+    btnDelete: "linear-gradient(145deg,#e11d48,#be123c,#9f1239)",
+    btnSave: "linear-gradient(145deg,#7c3aed,#6d28d9,#5b21b6)",
+    glowDelete: "rgba(225,29,72,0.75)",
+    glowSave: "rgba(124,58,237,0.75)",
+    toolBg: "rgba(20,10,50,0.85)",
+    toolBorder: "rgba(139,92,246,0.45)",
+    toolGlow: "rgba(139,92,246,0.5)",
+    statusBar: "rgba(10,5,24,0.85)",
+    charCounter: "#6b21a8",
+    fontSizeBtnBg: "rgba(20,10,50,0.85)",
+    fontSizeBtnBorder: "rgba(139,92,246,0.4)",
+    blob1: "rgba(139,92,246,0.14)",
+    blob2: "rgba(236,72,153,0.12)",
+    blob3: "rgba(59,130,246,0.1)",
+    switcherBg: "rgba(20,10,50,0.9)",
+    switcherBorder: "rgba(139,92,246,0.45)",
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+// 3D SVG ICONS
+// ═══════════════════════════════════════════════════════════════
+function FolderIcon({ size = 80 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
+      <defs>
+        <linearGradient id="fb" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2563eb"/>
+          <stop offset="50%" stopColor="#1d4ed8"/>
+          <stop offset="100%" stopColor="#1e40af"/>
+        </linearGradient>
+        <linearGradient id="ft" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3b82f6"/>
+          <stop offset="100%" stopColor="#2563eb"/>
+        </linearGradient>
+        <linearGradient id="fsh" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.25)"/>
+          <stop offset="100%" stopColor="rgba(255,255,255,0)"/>
+        </linearGradient>
+        <filter id="fglow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      {/* Shadow */}
+      <ellipse cx="40" cy="72" rx="28" ry="5" fill="rgba(0,0,0,0.3)" filter="url(#fglow)"/>
+      {/* Folder back */}
+      <rect x="8" y="28" width="64" height="40" rx="6" fill="url(#fb)"/>
+      {/* Folder tab */}
+      <path d="M8 28 Q8 22 14 22 L32 22 Q36 22 38 26 L42 32 L8 32 Z" fill="url(#ft)"/>
+      {/* Shine */}
+      <rect x="8" y="28" width="64" height="18" rx="6" fill="url(#fsh)" opacity="0.6"/>
+      {/* Person badge */}
+      <circle cx="58" cy="46" r="11" fill="#1e3a8a" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5"/>
+      <circle cx="58" cy="43" r="4" fill="#60a5fa"/>
+      <path d="M50 57 Q52 51 58 51 Q64 51 66 57" fill="#60a5fa"/>
+    </svg>
+  );
+}
+
+function DocumentIcon({ size = 80 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
+      <defs>
+        <linearGradient id="db" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f97316"/>
+          <stop offset="50%" stopColor="#ea580c"/>
+          <stop offset="100%" stopColor="#c2410c"/>
+        </linearGradient>
+        <linearGradient id="dsh" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.3)"/>
+          <stop offset="100%" stopColor="rgba(255,255,255,0)"/>
+        </linearGradient>
+        <linearGradient id="dcorner" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fdba74"/>
+          <stop offset="100%" stopColor="#f97316"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="40" cy="72" rx="26" ry="4.5" fill="rgba(0,0,0,0.28)" filter="url(#fglow)"/>
+      {/* Doc body */}
+      <path d="M14 12 L52 12 L66 26 L66 68 Q66 72 62 72 L14 72 Q10 72 10 68 L10 16 Q10 12 14 12 Z" fill="url(#db)"/>
+      {/* Folded corner */}
+      <path d="M52 12 L66 26 L54 26 Q52 26 52 24 Z" fill="url(#dcorner)"/>
+      <path d="M52 12 L54 26 L52 24 Z" fill="rgba(0,0,0,0.25)"/>
+      {/* Shine */}
+      <path d="M14 12 L52 12 L52 24 L10 24 L10 16 Q10 12 14 12 Z" fill="url(#dsh)" opacity="0.55"/>
+      {/* Lines */}
+      <line x1="20" y1="36" x2="56" y2="36" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="20" y1="44" x2="52" y2="44" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="20" y1="52" x2="48" y2="52" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="20" y1="60" x2="42" y2="60" stroke="rgba(255,255,255,0.25)" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function TrashIcon({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <defs>
+        <linearGradient id="ti" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.9)"/>
+          <stop offset="100%" stopColor="rgba(255,255,255,0.65)"/>
+        </linearGradient>
+      </defs>
+      <rect x="5" y="8" width="18" height="17" rx="3" fill="url(#ti)"/>
+      <rect x="10" y="4" width="8" height="4" rx="1.5" fill="rgba(255,255,255,0.9)"/>
+      <line x1="2" y1="8" x2="26" y2="8" stroke="rgba(255,255,255,0.8)" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="10" y1="12" x2="10" y2="21" stroke="rgba(220,38,38,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="14" y1="12" x2="14" y2="21" stroke="rgba(220,38,38,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="18" y1="12" x2="18" y2="21" stroke="rgba(220,38,38,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function SaveIcon({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect x="4" y="4" width="20" height="20" rx="3" fill="rgba(255,255,255,0.85)"/>
+      <rect x="8" y="4" width="12" height="9" rx="1" fill="rgba(255,255,255,0.9)"/>
+      <rect x="11" y="5" width="3" height="6" rx="0.5" fill="rgba(22,163,74,0.5)"/>
+      <rect x="6" y="16" width="16" height="8" rx="1.5" fill="rgba(255,255,255,0.7)"/>
+    </svg>
+  );
+}
+
+function SearchIcon({ size = 26, color = "white" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 26 26" fill="none">
+      <circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2.5" fill="none"/>
+      <line x1="16.5" y1="16.5" x2="23" y2="23" stroke={color} strokeWidth="2.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function TxtIcon({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 26 26" fill="none">
+      <rect x="4" y="2" width="14" height="18" rx="2" fill="rgba(255,255,255,0.85)"/>
+      <path d="M14 2 L18 2 L22 6 L18 6 Q17 6 17 5 L17 2 Z" fill="rgba(255,255,255,0.7)"/>
+      <path d="M18 2 L22 6 L18 6 Z" fill="rgba(0,0,0,0.15)"/>
+      <text x="2" y="24" fontSize="7" fontWeight="bold" fill="white" fontFamily="monospace">TXT</text>
+    </svg>
+  );
+}
+
+function ShareIcon({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 26 26" fill="none">
+      <circle cx="20" cy="4" r="3" fill="white"/>
+      <circle cx="6" cy="13" r="3" fill="white"/>
+      <circle cx="20" cy="22" r="3" fill="white"/>
+      <line x1="9" y1="11.5" x2="17" y2="5.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="9" y1="14.5" x2="17" y2="20.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function PenIcon({ size = 18, color = "#94a3b8" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <path d="M13 2 L16 5 L6 15 L3 16 L4 13 Z" fill={color} opacity="0.9"/>
+      <line x1="11" y1="4" x2="14" y2="7" stroke={color} strokeWidth="1" opacity="0.6"/>
+    </svg>
+  );
+}
+
+function SunIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="3.5" fill="#fbbf24"/>
+      {[0,45,90,135,180,225,270,315].map((a,i)=>(
+        <line key={i} x1={8+Math.cos(a*Math.PI/180)*5.5} y1={8+Math.sin(a*Math.PI/180)*5.5}
+          x2={8+Math.cos(a*Math.PI/180)*7} y2={8+Math.sin(a*Math.PI/180)*7}
+          stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
+      ))}
+    </svg>
+  );
+}
+
+function MoonIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path d="M12 10 A6 6 0 1 1 6 4 A4 4 0 0 0 12 10 Z" fill="#93c5fd"/>
+    </svg>
+  );
+}
+
+function NeonIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="6" fill="none" stroke="url(#ng)" strokeWidth="2"/>
+      <defs><linearGradient id="ng" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#a78bfa"/><stop offset="100%" stopColor="#ec4899"/></linearGradient></defs>
+      <circle cx="8" cy="8" r="2.5" fill="#c084fc"/>
+    </svg>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════
+export default function App() {
+  const [themeKey, setThemeKey]   = useState("dark");
+  const [activeTab, setActiveTab] = useState("licno");
+  const [texts, setTexts]         = useState({ licno: "", dokumenta: "" });
+  const [fontSize, setFontSize]   = useState(15);
+  const [showSearch, setShowSearch]   = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [toast, setToast]         = useState(null);
+  const [showThemeSwitcher, setShowThemeSwitcher] = useState(false);
+  const [customIcons, setCustomIcons] = useState({ licno: null, dokumenta: null, delete: null, save: null, search: null, txt: null, share: null });
+  const [saved, setSaved]         = useState({ licno: "", dokumenta: "" });
+  const autoSaveRef = useRef(null);
+  const T = THEMES[themeKey];
+
+  // ── Load from IndexedDB ─────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const tk  = await dbGet("themeKey");        if (tk) setThemeKey(tk);
+        const fs  = await dbGet("fontSize");        if (fs) setFontSize(fs);
+        const txL = await dbGet("text_licno");      if (txL) setTexts(p=>({...p, licno: txL}));
+        const txD = await dbGet("text_dokumenta");  if (txD) setTexts(p=>({...p, dokumenta: txD}));
+        const svL = await dbGet("saved_licno");     if (svL) setSaved(p=>({...p, licno: svL}));
+        const svD = await dbGet("saved_dokumenta"); if (svD) setSaved(p=>({...p, dokumenta: svD}));
+        const ic  = await dbGet("customIcons");     if (ic) setCustomIcons(ic);
+      } catch {}
+    })();
+  }, []);
+
+  // ── Auto-save text ──────────────────────────────────────────
+  const currentText = texts[activeTab];
+  useEffect(() => {
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(() => {
+      dbSet(`text_${activeTab}`, currentText).catch(()=>{});
+    }, 400);
+    return () => clearTimeout(autoSaveRef.current);
+  }, [currentText, activeTab]);
+
+  const showToast = (msg, type = "ok") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2200);
+  };
+
+  const handleSave = async () => {
+    const txt = texts[activeTab];
+    setSaved(p => ({ ...p, [activeTab]: txt }));
+    try { await dbSet(`saved_${activeTab}`, txt); } catch {}
+    showToast("✓ Sačuvano");
+  };
+
+  const handleDelete = () => {
+    setTexts(p => ({ ...p, [activeTab]: "" }));
+    dbSet(`text_${activeTab}`, "").catch(()=>{});
+    showToast("Obrisano", "warn");
+  };
+
+  const handleExportTXT = () => {
+    const txt = texts[activeTab];
+    if (!txt.trim()) { showToast("Nema teksta za izvoz", "warn"); return; }
+    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${activeTab}_beleska.txt`; a.click();
+    URL.revokeObjectURL(url);
+    showToast("✓ Izvoženo kao TXT");
+  };
+
+  const handleShare = () => {
+    const txt = texts[activeTab];
+    if (!txt.trim()) { showToast("Nema teksta za deljenje", "warn"); return; }
+    if (navigator.share) {
+      navigator.share({ title: `${activeTab === "licno" ? "Lično" : "Dokumenta"} beleška`, text: txt });
+    } else {
+      navigator.clipboard?.writeText(txt);
+      showToast("✓ Kopirano u clipboard");
+    }
+  };
+
+  const handleSearch = () => {
+    setShowSearch(s => !s);
+    setSearchQuery("");
+  };
+
+  const changeTheme = async (key) => {
+    setThemeKey(key);
+    setShowThemeSwitcher(false);
+    try { await dbSet("themeKey", key); } catch {}
+  };
+
+  const changeFontSize = async (delta) => {
+    const nf = Math.max(11, Math.min(22, fontSize + delta));
+    setFontSize(nf);
+    try { await dbSet("fontSize", nf); } catch {}
+  };
+
+  const handleIconUpload = (key) => (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const data = ev.target.result;
+      const updated = { ...customIcons, [key]: data };
+      setCustomIcons(updated);
+      try { await dbSet("customIcons", updated); } catch {}
+      showToast("✓ Ikonica zamenjena");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Search filter on saved text
+  const searchResults = searchQuery.trim()
+    ? [
+        ...(texts.licno.toLowerCase().includes(searchQuery.toLowerCase()) ? [{ cat:"licno", snippet: texts.licno.slice(0,120) }] : []),
+        ...(texts.dokumenta.toLowerCase().includes(searchQuery.toLowerCase()) ? [{ cat:"dokumenta", snippet: texts.dokumenta.slice(0,120) }] : []),
+      ]
+    : [];
+
+  // ── CSS ──────────────────────────────────────────────────────
+  const css = `
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{background:#07111f;font-family:'Nunito',sans-serif;overscroll-behavior:none}
+    ::-webkit-scrollbar{width:3px}
+    ::-webkit-scrollbar-thumb{background:rgba(99,102,241,0.3);border-radius:10px}
+
+    .app{
+      width:100%;max-width:430px;min-height:100dvh;margin:0 auto;
+      display:flex;flex-direction:column;position:relative;overflow:hidden;
+      transition:background 0.4s ease;
+    }
+
+    /* Blobs */
+    .blob{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;z-index:0;transition:background 0.4s}
+    .b1{width:300px;height:300px;top:-80px;left:-80px}
+    .b2{width:250px;height:250px;top:50%;right:-60px}
+    .b3{width:200px;height:200px;bottom:120px;left:10px}
+
+    .inner{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;padding:0 0 8px}
+
+    /* Status bar */
+    .status{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 16px 6px;font-size:10px;font-weight:700;letter-spacing:1px;
+      text-transform:uppercase;
+    }
+    .status-badge{
+      display:flex;align-items:center;gap:5px;
+      padding:3px 10px;border-radius:50px;
+      font-size:9px;font-weight:800;letter-spacing:0.8px;
+    }
+
+    /* Theme switcher btn */
+    .theme-btn{
+      width:32px;height:32px;border-radius:50%;border:1px solid;
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;transition:all 0.2s;backdrop-filter:blur(10px);
+    }
+    .theme-btn:active{transform:scale(0.9)}
+
+    /* Theme picker dropdown */
+    .theme-picker{
+      position:absolute;top:52px;right:12px;z-index:100;
+      border-radius:16px;padding:6px;
+      backdrop-filter:blur(24px);
+      box-shadow:0 8px 32px rgba(0,0,0,0.5);
+      display:flex;flex-direction:column;gap:4px;min-width:150px;
+    }
+    .theme-option{
+      display:flex;align-items:center;gap:8px;padding:8px 12px;
+      border-radius:12px;cursor:pointer;transition:all 0.15s;
+      font-size:12px;font-weight:700;
+    }
+    .theme-option:active{transform:scale(0.97)}
+
+    /* Category cards */
+    .cards-row{display:flex;gap:10px;padding:6px 14px 4px}
+    .cat-card{
+      flex:1;border-radius:20px;padding:16px 14px 14px;
+      display:flex;flex-direction:column;align-items:center;gap:6px;
+      cursor:pointer;position:relative;overflow:hidden;
+      border:1.5px solid rgba(255,255,255,0.08);
+      transition:transform 0.2s,box-shadow 0.3s;
+      -webkit-user-select:none;user-select:none;
+    }
+    .cat-card:active{transform:scale(0.96) translateY(-2px)}
+    .cat-card.active{border-color:rgba(255,255,255,0.18)}
+    .cat-card-label{
+      font-family:'Space Grotesk',sans-serif;
+      font-size:15px;font-weight:700;color:white;
+      text-shadow:0 2px 8px rgba(0,0,0,0.4);
+      letter-spacing:0.2px;
+    }
+    .card-shine{
+      position:absolute;top:0;left:0;right:0;height:45%;
+      background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,rgba(255,255,255,0) 100%);
+      border-radius:18px 18px 0 0;pointer-events:none;
+    }
+    .card-glow-bar{
+      position:absolute;bottom:-2px;left:15%;width:70%;height:8px;
+      border-radius:50%;filter:blur(6px);
+    }
+    .card-icon-wrap{
+      width:44px;height:44px;border-radius:12px;overflow:hidden;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.2);position:relative;
+    }
+    .card-icon-wrap img{width:100%;height:100%;object-fit:cover;border-radius:10px}
+    .icon-upload-overlay{
+      position:absolute;inset:0;background:rgba(0,0,0,0.5);
+      display:flex;align-items:center;justify-content:center;
+      border-radius:10px;opacity:0;transition:opacity 0.2s;cursor:pointer;
+    }
+    .card-icon-wrap:hover .icon-upload-overlay{opacity:1}
+
+    /* Text area section */
+    .textarea-wrap{
+      flex:1;margin:8px 14px 0;border-radius:18px;
+      border:1.5px solid;position:relative;
+      transition:border-color 0.3s,background 0.3s;
+      display:flex;flex-direction:column;overflow:hidden;
+      min-height:180px;
+    }
+    .textarea-header{
+      display:flex;align-items:center;gap:8px;
+      padding:10px 14px 6px;
+    }
+    .main-textarea{
+      flex:1;width:100%;border:none;outline:none;resize:none;
+      padding:0 14px 10px;font-family:'Nunito',sans-serif;
+      font-weight:500;line-height:1.65;background:transparent;
+      transition:font-size 0.2s,color 0.3s;
+      caret-color:#3b82f6;
+    }
+    .textarea-footer{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:6px 14px 10px;
+    }
+    .font-size-btn{
+      width:28px;height:28px;border-radius:8px;border:1px solid;
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;font-size:13px;font-weight:700;transition:all 0.15s;
+    }
+    .font-size-btn:active{transform:scale(0.9)}
+
+    /* Main buttons */
+    .main-btns{display:flex;gap:10px;padding:10px 14px 6px}
+    .main-btn{
+      flex:1;border-radius:18px;border:none;cursor:pointer;
+      padding:14px 10px 12px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:5px;
+      position:relative;overflow:hidden;
+      box-shadow:0 6px 24px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.2);
+      transition:transform 0.15s,box-shadow 0.15s;
+    }
+    .main-btn:active{transform:scale(0.94) translateY(2px);box-shadow:0 2px 10px rgba(0,0,0,0.3)}
+    .main-btn-label{
+      font-family:'Space Grotesk',sans-serif;
+      font-size:14px;font-weight:700;color:white;letter-spacing:0.3px;
+    }
+    .btn-shine{
+      position:absolute;top:0;left:0;right:0;height:40%;
+      background:linear-gradient(180deg,rgba(255,255,255,0.25) 0%,transparent 100%);
+      pointer-events:none;border-radius:18px 18px 0 0;
+    }
+    .btn-glow{
+      position:absolute;bottom:-3px;left:20%;width:60%;height:8px;
+      border-radius:50%;filter:blur(7px);
+    }
+    .btn-icon-upload{
+      position:absolute;top:6px;right:6px;width:18px;height:18px;
+      border-radius:5px;background:rgba(0,0,0,0.35);
+      display:flex;align-items:center;justify-content:center;cursor:pointer;
+    }
+    .btn-icon-upload:active{transform:scale(0.9)}
+
+    /* Tool buttons */
+    .tools-row{display:flex;justify-content:center;gap:20px;padding:4px 14px 6px}
+    .tool-btn{
+      width:58px;height:58px;border-radius:50%;border:1.5px solid;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+      cursor:pointer;position:relative;
+      box-shadow:0 4px 16px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.12);
+      transition:transform 0.15s,box-shadow 0.15s;backdrop-filter:blur(10px);
+    }
+    .tool-btn:active{transform:scale(0.9)}
+    .tool-label{font-size:9px;font-weight:800;color:white;letter-spacing:0.3px}
+    .tool-icon-upload{
+      position:absolute;top:-2px;right:-2px;width:16px;height:16px;
+      border-radius:50%;background:rgba(0,0,0,0.5);
+      display:flex;align-items:center;justify-content:center;
+      cursor:pointer;border:1px solid rgba(255,255,255,0.2);
+    }
+
+    /* Search overlay */
+    .search-overlay{
+      margin:0 14px 8px;border-radius:14px;border:1.5px solid;
+      overflow:hidden;backdrop-filter:blur(20px);
+    }
+    .search-input{
+      width:100%;border:none;outline:none;padding:12px 16px;
+      font-family:'Nunito',sans-serif;font-size:14px;font-weight:600;
+      background:transparent;
+    }
+    .search-result{
+      padding:8px 16px;border-top:1px solid;cursor:pointer;
+      font-size:12px;font-weight:600;transition:background 0.15s;
+    }
+    .search-result:active{background:rgba(255,255,255,0.05)}
+
+    /* Toast */
+    .toast-wrap{
+      position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+      z-index:999;pointer-events:none;
+    }
+    .toast{
+      padding:9px 22px;border-radius:50px;
+      font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;
+      letter-spacing:0.3px;white-space:nowrap;color:white;
+      backdrop-filter:blur(20px);
+      box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    /* PWA status line */
+    .pwa-line{
+      display:flex;align-items:center;justify-content:center;gap:12px;
+      padding:4px 0 6px;font-size:9px;font-weight:800;letter-spacing:0.8px;opacity:0.55;
+    }
+    .pwa-dot{display:flex;align-items:center;gap:3px}
+
+    @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes pulseGlow{0%,100%{opacity:0.7}50%{opacity:1}}
+    .pulsing{animation:pulseGlow 2s ease-in-out infinite}
+  `;
+
+  const isLight = themeKey === "light";
+
+  return (
+    <>
+      <style>{css}</style>
+      <div className="app" style={{ background: T.bg }}>
+        {/* Ambient blobs */}
+        <div className="blob b1" style={{ background: `radial-gradient(circle,${T.blob1},transparent 70%)` }}/>
+        <div className="blob b2" style={{ background: `radial-gradient(circle,${T.blob2},transparent 70%)` }}/>
+        <div className="blob b3" style={{ background: `radial-gradient(circle,${T.blob3},transparent 70%)` }}/>
+
+        {/* Toast */}
+        <div className="toast-wrap">
+          <AnimatePresence>
+            {toast && (
+              <motion.div className="toast" key="t"
+                initial={{opacity:0,y:16,scale:0.9}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:8,scale:0.9}}
+                style={{ background: toast.type === "warn" ? "rgba(220,38,38,0.92)" : "rgba(22,163,74,0.92)" }}>
+                {toast.msg}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="inner">
+          {/* ── STATUS BAR ── */}
+          <div className="status" style={{ background: T.statusBar, color: T.textSub }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div className="status-badge" style={{ background:"rgba(22,163,74,0.15)", color:"#22c55e", border:"1px solid rgba(22,163,74,0.3)" }}>
+                <span className="pulsing" style={{ width:5,height:5,borderRadius:"50%",background:"#22c55e",display:"block" }}/>
+                PWA
+              </div>
+              <div className="status-badge" style={{ background:"rgba(59,130,246,0.12)", color:"#60a5fa", border:"1px solid rgba(59,130,246,0.2)" }}>
+                OFFLINE
+              </div>
+            </div>
+
+            {/* Theme switcher button */}
+            <div style={{ position:"relative" }}>
+              <div className="theme-btn"
+                style={{ background: T.switcherBg, borderColor: T.switcherBorder }}
+                onClick={() => setShowThemeSwitcher(s => !s)}>
+                {themeKey === "light" ? <SunIcon/> : themeKey === "dark" ? <MoonIcon/> : <NeonIcon/>}
+              </div>
+              <AnimatePresence>
+                {showThemeSwitcher && (
+                  <motion.div className="theme-picker" key="tp"
+                    initial={{opacity:0,scale:0.9,y:-8}} animate={{opacity:1,scale:1,y:0}} exit={{opacity:0,scale:0.9,y:-8}}
+                    style={{ background: T.switcherBg, border:`1px solid ${T.switcherBorder}` }}>
+                    {Object.values(THEMES).map(th => (
+                      <div key={th.id} className="theme-option"
+                        style={{ background: themeKey===th.id ? (T.surfaceBorder) : "transparent", color: T.text }}
+                        onClick={() => changeTheme(th.id)}>
+                        {th.id==="light"?<SunIcon size={14}/>:th.id==="dark"?<MoonIcon size={14}/>:<NeonIcon size={14}/>}
+                        {th.label}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* ── CATEGORY CARDS ── */}
+          <div className="cards-row">
+            {[
+              { key:"licno",      label:"Lično",    glow: T.glowLicno,     bg: T.cardLicno     },
+              { key:"dokumenta",  label:"Dokumenta",glow: T.glowDokumenta, bg: T.cardDokumenta },
+            ].map(({ key, label, glow, bg }) => (
+              <motion.div key={key}
+                className={`cat-card ${activeTab===key?"active":""}`}
+                style={{
+                  background: bg,
+                  boxShadow: activeTab===key
+                    ? `0 8px 32px ${glow}, 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)`
+                    : `0 4px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)`,
+                }}
+                whileTap={{ scale: 0.95, y: -3 }}
+                onClick={() => setActiveTab(key)}>
+
+                {/* Icon */}
+                <label style={{ cursor:"pointer", position:"relative" }}>
+                  <input type="file" accept="image/*" onChange={handleIconUpload(key)} style={{ display:"none" }}/>
+                  <div className="card-icon-wrap">
+                    {customIcons[key]
+                      ? <img src={customIcons[key]} alt={label}/>
+                      : key==="licno" ? <FolderIcon size={42}/> : <DocumentIcon size={42}/>
+                    }
+                    <div className="icon-upload-overlay">
+                      <PenIcon size={12} color="white"/>
+                    </div>
+                  </div>
+                </label>
+
+                <span className="cat-card-label">{label}</span>
+
+                <div className="card-shine"/>
+                {activeTab===key && (
+                  <div className="card-glow-bar pulsing" style={{ background: glow }}/>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* ── SEARCH BAR ── */}
+          <AnimatePresence>
+            {showSearch && (
+              <motion.div className="search-overlay" key="search"
+                initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}}
+                style={{ background: T.inputBg, borderColor: T.inputBorder }}>
+                <input className="search-input"
+                  style={{ color: T.text, caretColor:"#3b82f6" }}
+                  placeholder="Pretraži beleške..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+                {searchResults.map((r, i) => (
+                  <div key={i} className="search-result"
+                    style={{ color: T.text, borderColor: T.inputBorder }}
+                    onClick={() => { setActiveTab(r.cat); setShowSearch(false); }}>
+                    <span style={{ color: T.textSub, marginRight:6 }}>
+                      {r.cat==="licno"?"📁":"📄"}
+                    </span>
+                    {r.snippet}…
+                  </div>
+                ))}
+                {searchQuery && searchResults.length===0 && (
+                  <div style={{ padding:"8px 16px", color: T.textSub, fontSize:12 }}>Nema rezultata</div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── TEXT AREA ── */}
+          <div className="textarea-wrap"
+            style={{ background: T.inputBg, borderColor: activeTab==="licno" ? T.inputBorder : T.inputBorder,
+              boxShadow: `0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)` }}>
+            <div className="textarea-header">
+              <PenIcon size={16} color={T.textSub}/>
+              <span style={{ fontSize:12, fontWeight:600, color: T.textSub }}>
+                Ovde upišite belešku...
+              </span>
+            </div>
+            <textarea
+              className="main-textarea"
+              style={{ fontSize: fontSize, color: T.text }}
+              placeholder=""
+              value={texts[activeTab]}
+              onChange={e => setTexts(p => ({ ...p, [activeTab]: e.target.value }))}
+              spellCheck={false}
+            />
+            <div className="textarea-footer">
+              <span style={{ fontSize:11, fontWeight:700, color: T.charCounter }}>
+                {texts[activeTab].length} karaktera
+              </span>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <div className="font-size-btn press-btn"
+                  style={{ background: T.fontSizeBtnBg, borderColor: T.fontSizeBtnBorder, color: T.text }}
+                  onClick={() => changeFontSize(-1)}>A</div>
+                <span style={{ fontSize:11, fontWeight:700, color: T.textSub, minWidth:22, textAlign:"center" }}>{fontSize}</span>
+                <div className="font-size-btn press-btn"
+                  style={{ background: T.fontSizeBtnBg, borderColor: T.fontSizeBtnBorder, color: T.text, fontSize:15 }}
+                  onClick={() => changeFontSize(1)}>A</div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── MAIN BUTTONS ── */}
+          <div className="main-btns">
+            {/* DELETE */}
+            <motion.button className="main-btn" style={{ background: T.btnDelete }}
+              whileTap={{ scale: 0.93, y: 3 }}
+              onClick={handleDelete}>
+              <div className="btn-shine"/>
+              <label style={{ cursor:"pointer", position:"relative" }} onClick={e => e.stopPropagation()}>
+                <input type="file" accept="image/*" onChange={handleIconUpload("delete")} style={{ display:"none" }}/>
+                <div style={{ width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  {customIcons["delete"]
+                    ? <img src={customIcons["delete"]} style={{ width:34, height:34, borderRadius:8, objectFit:"cover" }}/>
+                    : <TrashIcon size={30}/>
+                  }
+                </div>
+              </label>
+              <span className="main-btn-label">Obriši</span>
+              <div className="btn-glow" style={{ background: T.glowDelete }}/>
+            </motion.button>
+
+            {/* SAVE */}
+            <motion.button className="main-btn" style={{ background: T.btnSave }}
+              whileTap={{ scale: 0.93, y: 3 }}
+              onClick={handleSave}>
+              <div className="btn-shine"/>
+              <label style={{ cursor:"pointer", position:"relative" }} onClick={e => e.stopPropagation()}>
+                <input type="file" accept="image/*" onChange={handleIconUpload("save")} style={{ display:"none" }}/>
+                <div style={{ width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  {customIcons["save"]
+                    ? <img src={customIcons["save"]} style={{ width:34, height:34, borderRadius:8, objectFit:"cover" }}/>
+                    : <SaveIcon size={30}/>
+                  }
+                </div>
+              </label>
+              <span className="main-btn-label">Sačuvaj</span>
+              <div className="btn-glow" style={{ background: T.glowSave }}/>
+            </motion.button>
+          </div>
+
+          {/* ── TOOL BUTTONS ── */}
+          <div className="tools-row">
+            {[
+              { key:"search", label:"Pretraga", fn: handleSearch,    IconC: SearchIcon, active: showSearch },
+              { key:"txt",    label:"Izvoz TXT", fn: handleExportTXT, IconC: TxtIcon },
+              { key:"share",  label:"Deljenje",  fn: handleShare,     IconC: ShareIcon },
+            ].map(({ key, label, fn, IconC, active }) => (
+              <div key={key} className="tool-btn"
+                style={{
+                  background: active ? `${T.toolGlow.replace("0.3","0.2")}` : T.toolBg,
+                  borderColor: active ? T.toolGlow : T.toolBorder,
+                  boxShadow: active
+                    ? `0 4px 20px ${T.toolGlow}, inset 0 1px 0 rgba(255,255,255,0.1)`
+                    : `0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08)`,
+                }}
+                onClick={fn}>
+                <label style={{ cursor:"pointer" }} onClick={e => { e.stopPropagation(); }}>
+                  <input type="file" accept="image/*" onChange={handleIconUpload(key)} style={{ display:"none" }}/>
+                  <div style={{ width:26, height:26, display:"flex", alignItems:"center", justifyContent:"center" }}
+                    onClick={e => { e.preventDefault(); fn(); }}>
+                    {customIcons[key]
+                      ? <img src={customIcons[key]} style={{ width:24, height:24, borderRadius:6, objectFit:"cover" }}/>
+                      : <IconC size={24} color={active ? "#fff" : "rgba(255,255,255,0.85)"}/>
+                    }
+                  </div>
+                </label>
+                <span className="tool-label">{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* ── PWA LINE ── */}
+          <div className="pwa-line" style={{ color: T.textSub }}>
+            <div className="pwa-dot">
+              <span style={{ width:5,height:5,borderRadius:"50%",background:"#22c55e",display:"block" }}/>
+              PWA
+            </div>
+            <div className="pwa-dot">
+              <span style={{ width:5,height:5,borderRadius:"50%",background:"#60a5fa",display:"block" }}/>
+              Offline
+            </div>
+            <div className="pwa-dot">
+              <span style={{ width:5,height:5,borderRadius:"50%",background:"#a78bfa",display:"block" }}/>
+              Bez interneta
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

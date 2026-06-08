@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="description" content="Beleške - PWA aplikacija koja radi offline">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>Beleške - Offline PWA</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-light: #334155;
+      --text: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --primary: #3b82f6;
+      --secondary: #f97316;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --border: #334155;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-light: #e2e8f0;
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --border: #e2e8f0;
+    }
+
+    [data-theme="premium-neon"] {
+      --bg: #0a0a1a;
+      --surface: #1a1a3a;
+      --surface-light: #2a2a4a;
+      --text: #e0e0ff;
+      --text-secondary: #a0a0c0;
+      --primary: #a855f7;
+      --border: #3a3a5a;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      transition: all 0.3s ease;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px 16px 100px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .theme-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .theme-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .theme-btn.active {
+      transform: scale(1.05);
+      border-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary);
+    }
+
+    .categories {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .category-card {
+      flex: 1;
+      padding: 20px;
+      border-radius: 20px;
+      background: var(--surface);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+      position: relative;
+    }
+
+    .category-card.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 15px var(--primary);
+    }
+
+    .category-card:active {
+      transform: scale(0.97);
+    }
+
+    .category-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .category-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+
+    .notes-list {
+      background: var(--surface);
+      border-radius: 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .notes-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .notes-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .notes-content.expanded {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .note-item {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .note-item:hover {
+      background: var(--surface-light);
+    }
+
+    .note-item.active {
+      background: var(--primary);
+      opacity: 0.8;
+    }
+
+    .note-text {
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .note-date {
+      font-size: 10px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .editor {
+      background: var(--surface);
+      border-radius: 20px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .editor-toolbar {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .font-controls {
+      display: flex;
+      gap: 12px;
+    }
+
+    .font-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--surface-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      padding: 16px;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.6;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    textarea:focus {
+      outline: none;
+    }
+
+    .editor-footer {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 16px;
+      border-radius: 20px;
+      border: none;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: white;
+    }
+
+    .action-btn.delete {
+      background: var(--danger);
+    }
+
+    .action-btn.save {
+      background: var(--success);
+    }
+
+    .action-btn:active {
+      transform: scale(0.97);
+    }
+
+    .action-btn:disabled {
+      opacity: 0.5;
+      transform: none;
+      cursor: not-allowed;
+    }
+
+    .tool-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    .tool-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tool-btn:active {
+      transform: scale(0.95);
+    }
+
+    .search-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 80px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s;
+    }
+
+    .search-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .search-dialog {
+      background: var(--surface);
+      border-radius: 24px;
+      width: 90%;
+      max-width: 400px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .search-input {
+      display: flex;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-input input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 16px;
+    }
+
+    .search-input input:focus {
+      outline: none;
+    }
+
+    .search-results {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .search-result {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .search-result:hover {
+      background: var(--surface-light);
+    }
+
+    .install-banner {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--primary);
+      z-index: 50;
+      transform: translateY(100px);
+      transition: transform 0.3s;
+    }
+
+    .install-banner.show {
+      transform: translateY(0);
+    }
+
+    .install-banner button {
+      background: var(--primary);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 12px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: var(--surface);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 40px;
+      z-index: 200;
+      transition: transform 0.3s;
+      border: 1px solid var(--primary);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .pwa-badge {
+      text-align: center;
+      margin-top: 32px;
+      font-size: 10px;
+      color: var(--text-secondary);
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    (function() {
+      // ==================== STATE ====================
+      let currentCategory = 'licno';
+      let currentTheme = localStorage.getItem('theme') || 'dark';
+      let notes = { licno: [], dokumenta: [] };
+      let currentNote = null;
+      let currentText = '';
+      let fontSize = 16;
+      let autoSaveTimeout = null;
+
+      // ==================== INDEXEDDB (OFFLINE STORAGE) ====================
+      const DB_NAME = 'NotesAppDB';
+      const DB_VERSION = 1;
+      const STORE_NAME = 'notes';
+
+      function openDB() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+              const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+              store.createIndex('category', 'category', { unique: false });
+            }
+          };
+        });
+      }
+
+      async function loadNotes() {
+        try {
+          const db = await openDB();
+          
+          const licno = await new Promise((resolve) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const index = tx.objectStore(STORE_NAME).index('category');
+            const request = index.getAll('licno');
+            request.onsuccess = () => resolve(request.result || []);
+          });
+          
+          const dokumenta = await new Promise((resolve) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const index = tx.objectStore(STORE_NAME).index('category');
+            const request = index.getAll('dokumenta');
+            request.onsuccess = () => resolve(request.result || []);
+          });
+          
+          notes.licno = licno.sort((a, b) => b.updatedAt - a.updatedAt);
+          notes.dokumenta = dokumenta.sort((a, b) => b.updatedAt - a.updatedAt);
+        } catch (e) {
+          console.error('Error loading notes:', e);
+        }
+      }
+
+      async function saveNoteToDB(note) {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const request = tx.objectStore(STORE_NAME).put(note);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      async function deleteNoteFromDB(id) {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const request = tx.objectStore(STORE_NAME).delete(id);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      async function searchAllNotes(query) {
+        const db = await openDB();
+        return new Promise((resolve) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const request = tx.objectStore(STORE_NAME).getAll();
+          request.onsuccess = () => {
+            const all = request.result || [];
+            const q = query.toLowerCase();
+            const filtered = all.filter(n => n.text.toLowerCase().includes(q));
+            resolve(filtered.sort((a, b) => b.updatedAt - a.updatedAt));
+          };
+        });
+      }
+
+      // ==================== UI HELPERS ====================
+      function showToast(message) {
+        let toast = document.getElementById('toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => {
+          toast.classList.remove('show');
+        }, 2000);
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/[&<>]/g, function(m) {
+          if (m === '&') return '&amp;';
+          if (m === '<') return '&lt;';
+          if (m === '>') return '&gt;';
+          return m;
+        }).substring(0, 100);
+      }
+
+      async function autoSave() {
+        if (!currentText || !currentText.trim()) return;
+        
+        const now = Date.now();
+        let note;
+        
+        if (currentNote) {
+          note = { ...currentNote, text: currentText, updatedAt: now };
+        } else {
+          note = {
+            id: crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random(),
+            category: currentCategory,
+            text: currentText,
+            createdAt: now,
+            updatedAt: now
+          };
+        }
+        
+        await saveNoteToDB(note);
+        currentNote = note;
+        await loadNotes();
+        updateUI();
+      }
+
+      function handleTextChange(e) {
+        currentText = e.target.value;
+        
+        const charCount = document.getElementById('charCount');
+        const wordCount = document.getElementById('wordCount');
+        
+        if (charCount) charCount.textContent = currentText.length;
+        if (wordCount) {
+          const words = currentText.trim() ? currentText.trim().split(/\s+/).length : 0;
+          wordCount.textContent = words + ' reči';
+        }
+        
+        if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(autoSave, 1000);
+      }
+
+      async function selectNote(note) {
+        currentNote = note;
+        currentText = note.text;
+        updateUI();
+        const textarea = document.getElementById('editorTextarea');
+        if (textarea) {
+          textarea.value = currentText;
+          textarea.focus();
+        }
+      }
+
+      async function newNote() {
+        currentNote = null;
+        currentText = '';
+        updateUI();
+        const textarea = document.getElementById('editorTextarea');
+        if (textarea) {
+          textarea.value = '';
+          textarea.focus();
+        }
+      }
+
+      async function handleSave() {
+        if (!currentText || !currentText.trim()) {
+          showToast('Nema teksta za čuvanje');
+          return;
+        }
+        await autoSave();
+        showToast('Beleška sačuvana!');
+      }
+
+      async function handleDelete() {
+        if (!currentNote) {
+          showToast('Nema beleške za brisanje');
+          return;
+        }
+        await deleteNoteFromDB(currentNote.id);
+        currentNote = null;
+        currentText = '';
+        await loadNotes();
+        updateUI();
+        const textarea = document.getElementById('editorTextarea');
+        if (textarea) textarea.value = '';
+        showToast('Beleška obrisana');
+      }
+
+      function handleExport() {
+        if (!currentText || !currentText.trim()) {
+          showToast('Nema teksta za izvoz');
+          return;
+        }
+        const blob = new Blob([currentText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `beleska-${Date.now()}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('TXT fajl preuzet');
+      }
+
+      async function handleShare() {
+        if (!currentText || !currentText.trim()) {
+          showToast('Nema teksta za deljenje');
+          return;
+        }
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: 'Beleška', text: currentText });
+          } catch(e) {}
+        } else {
+          await navigator.clipboard.writeText(currentText);
+          showToast('Tekst kopiran u clipboard');
+        }
+      }
+
+      function setTheme(theme) {
+        currentTheme = theme;
+        localStorage.setItem('theme', theme);
+        document.documentElement.setAttribute('data-theme', theme);
+        
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+          if (btn.dataset.theme === theme) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+
+      function updateUI() {
+        // Update category badges and active state
+        const licnoCard = document.querySelector('.category-card[data-category="licno"]');
+        const dokumentaCard = document.querySelector('.category-card[data-category="dokumenta"]');
+        
+        if (licnoCard) {
+          const badge = licnoCard.querySelector('.badge');
+          if (badge) badge.textContent = notes.licno.length;
+          if (currentCategory === 'licno') licnoCard.classList.add('active');
+          else licnoCard.classList.remove('active');
+        }
+        
+        if (dokumentaCard) {
+          const badge = dokumentaCard.querySelector('.badge');
+          if (badge) badge.textContent = notes.dokumenta.length;
+          if (currentCategory === 'dokumenta') dokumentaCard.classList.add('active');
+          else dokumentaCard.classList.remove('active');
+        }
+
+        // Update notes list header
+        const headerSpan = document.querySelector('.notes-header span');
+        if (headerSpan) {
+          headerSpan.textContent = `📋 Sačuvane beleške (${notes[currentCategory].length})`;
+        }
+
+        // Update notes list
+        const notesContent = document.getElementById('notesContent');
+        if (notesContent) {
+          const currentNotes = notes[currentCategory];
+          if (currentNotes.length === 0) {
+            notesContent.innerHTML = '<div class="note-item" style="text-align:center; color:var(--text-secondary)">Nema sačuvanih beleški</div>';
+          } else {
+            notesContent.innerHTML = currentNotes.map(note => `
+              <div class="note-item ${currentNote?.id === note.id ? 'active' : ''}" data-id="${note.id}">
+                <div class="note-text">${escapeHtml(note.text)}</div>
+                <div class="note-date">${new Date(note.updatedAt).toLocaleString('sr-Latn')}</div>
+              </div>
+            `).join('');
+            
+            document.querySelectorAll('.note-item[data-id]').forEach(el => {
+              el.addEventListener('click', () => {
+                const id = el.dataset.id;
+                const note = notes[currentCategory].find(n => n.id === id);
+                if (note) selectNote(note);
+              });
+            });
+          }
+        }
+
+        // Update editor
+        const textarea = document.getElementById('editorTextarea');
+        const charCount = document.getElementById('charCount');
+        const wordCount = document.getElementById('wordCount');
+        
+        if (textarea && textarea.value !== currentText) {
+          textarea.value = currentText;
+          textarea.style.fontSize = fontSize + 'px';
+        }
+        if (charCount) charCount.textContent = currentText.length;
+        if (wordCount) {
+          const words = currentText.trim() ? currentText.trim().split(/\s+/).length : 0;
+          wordCount.textContent = words + ' reči';
+        }
+
+        // Update buttons
+        const hasText = currentText && currentText.trim().length > 0;
+        const deleteBtn = document.getElementById('deleteBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        if (deleteBtn) deleteBtn.disabled = !hasText || !currentNote;
+        if (saveBtn) saveBtn.disabled = !hasText;
+      }
+
+      async function switchCategory(cat) {
+        if (cat === currentCategory) return;
+        currentCategory = cat;
+        currentNote = null;
+        currentText = '';
+        await loadNotes();
+        updateUI();
+        const textarea = document.getElementById('editorTextarea');
+        if (textarea) textarea.value = '';
+      }
+
+      async function searchOpen() {
+        const overlay = document.getElementById('searchOverlay');
+        if (!overlay) return;
+        overlay.classList.add('active');
+        const input = document.getElementById('searchInput');
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+        const resultsDiv = document.getElementById('searchResults');
+        if (resultsDiv) resultsDiv.innerHTML = '';
+      }
+
+      function searchClose() {
+        const overlay = document.getElementById('searchOverlay');
+        if (overlay) overlay.classList.remove('active');
+      }
+
+      async function handleSearchInput(e) {
+        const query = e.target.value;
+        if (!query.trim()) {
+          const resultsDiv = document.getElementById('searchResults');
+          if (resultsDiv) resultsDiv.innerHTML = '';
+          return;
+        }
+        
+        const results = await searchAllNotes(query);
+        const resultsDiv = document.getElementById('searchResults');
+        
+        if (!resultsDiv) return;
+        
+        if (results.length === 0) {
+          resultsDiv.innerHTML = '<div class="search-result" style="text-align:center">Nema rezultata</div>';
+        } else {
+          resultsDiv.innerHTML = results.map(res => `
+            <div class="search-result" data-id="${res.id}" data-cat="${res.category}">
+              <div style="display:flex; gap:8px; margin-bottom:4px">
+                <span style="font-size:10px; background:var(--primary); padding:2px 8px; border-radius:20px">${res.category === 'licno' ? 'Lično' : 'Dokumenta'}</span>
+                <span style="font-size:10px; color:var(--text-secondary)">${new Date(res.updatedAt).toLocaleDateString('sr-Latn')}</span>
+              </div>
+              <div style="font-size:13px">${escapeHtml(res.text)}</div>
+            </div>
+          `).join('');
+          
+          document.querySelectorAll('.search-result[data-id]').forEach(el => {
+            el.addEventListener('click', async () => {
+              const id = el.dataset.id;
+              const cat = el.dataset.cat;
+              if (cat !== currentCategory) {
+                await switchCategory(cat);
+              }
+              const note = notes[currentCategory].find(n => n.id === id);
+              if (note) {
+                await selectNote(note);
+              }
+              searchClose();
+            });
+          });
+        }
+      }
+
+      // ==================== PWA INSTALL ====================
+      let deferredPrompt = null;
+      
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const banner = document.getElementById('installBanner');
+        if (banner) banner.classList.add('show');
+      });
+
+      // ==================== INITIALIZATION ====================
+      async function init() {
+        await loadNotes();
+        
+        const currentNotes = notes[currentCategory];
+        if (currentNotes.length > 0 && !currentNote) {
+          currentNote = currentNotes[0];
+          currentText = currentNote.text;
+        }
+        
+        render();
+      }
+
+      function render() {
+        const app = document.getElementById('app');
+        if (!app) return;
+
+        app.innerHTML = `
+          <div class="container">
+            <div class="header">
+              <div class="logo">📝 Beleške</div>
+              <div class="theme-buttons">
+                <button class="theme-btn ${currentTheme === 'dark' ? 'active' : ''}" data-theme="dark">🌙</button>
+                <button class="theme-btn ${currentTheme === 'light' ? 'active' : ''}" data-theme="light">☀️</button>
+                <button class="theme-btn ${currentTheme === 'premium-neon' ? 'active' : ''}" data-theme="premium-neon">👑</button>
+              </div>
+            </div>
+            
+            <div class="categories">
+              <div class="category-card ${currentCategory === 'licno' ? 'active' : ''}" data-category="licno">
+                <div class="category-icon">📁</div>
+                <div class="category-title">Lično</div>
+                <div class="badge">${notes.licno.length}</div>
+              </div>
+              <div class="category-card ${currentCategory === 'dokumenta' ? 'active' : ''}" data-category="dokumenta">
+                <div class="category-icon">📄</div>
+                <div class="category-title">Dokumenta</div>
+                <div class="badge">${notes.dokumenta.length}</div>
+              </div>
+            </div>
+            
+            <div class="notes-list">
+              <div class="notes-header">
+                <span>📋 Sačuvane beleške (${notes[currentCategory].length})</span>
+                <div style="display:flex; gap:12px; align-items:center">
+                  <button id="newNoteBtn" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:18px">➕</button>
+                  <span id="notesToggle" style="cursor:pointer">▼</span>
+                </div>
+              </div>
+              <div class="notes-content" id="notesContent"></div>
+            </div>
+            
+            <div class="editor">
+              <div class="editor-toolbar">
+                <div class="font-controls">
+                  <div class="font-btn" id="fontDec">A-</div>
+                  <div class="font-btn" id="fontInc">A+</div>
+                </div>
+                <div style="color:var(--text-secondary); font-size:12px">✏️ Uređivanje</div>
+              </div>
+              <textarea id="editorTextarea" placeholder="Ovde upišite belešku..."></textarea>
+              <div class="editor-footer">
+                <span id="charCount">${currentText.length}</span>
+                <span id="wordCount">${currentText.trim() ? currentText.trim().split(/\s+/).length : 0} reči</span>
+              </div>
+            </div>
+            
+            <div class="action-buttons">
+              <button class="action-btn delete" id="deleteBtn" ${!currentText.trim() || !currentNote ? 'disabled' : ''}>🗑️ OBRIŠI</button>
+              <button class="action-btn save" id="saveBtn" ${!currentText.trim() ? 'disabled' : ''}>💾 SAČUVAJ</button>
+            </div>
+            
+            <div class="tool-buttons">
+              <div class="tool-btn" id="searchBtn">🔍</div>
+              <div class="tool-btn" id="exportBtn">📎</div>
+              <div class="tool-btn" id="shareBtn">📤</div>
+            </div>
+            
+            <div class="pwa-badge">
+              ● PWA • Offline • Lokalno čuvanje
+            </div>
+          </div>
+          
+          <div class="search-overlay" id="searchOverlay">
+            <div class="search-dialog">
+              <div class="search-input">
+                <span>🔍</span>
+                <input type="text" id="searchInput" placeholder="Pretražite beleške...">
+                <button id="closeSearchBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:20px">✕</button>
+              </div>
+              <div class="search-results" id="searchResults"></div>
+            </div>
+          </div>
+          
+          <div class="install-banner" id="installBanner">
+            <span>📱</span>
+            <div style="flex:1">
+              <div style="font-weight:600">Instaliraj aplikaciju</div>
+              <div style="font-size:11px; color:var(--text-secondary)">Radi offline, brže se pokreće</div>
+            </div>
+            <button id="installBtn">Instaliraj</button>
+            <button id="dismissInstallBtn" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:18px">✕</button>
+          </div>
+          
+          <div class="toast" id="toast">Poruka</div>
+        `;
+
+        // Attach event listeners
+        document.querySelectorAll('.category-card').forEach(card => {
+          card.addEventListener('click', () => {
+            const cat = card.dataset.category;
+            if (cat) switchCategory(cat);
+          });
+        });
+        
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+          btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+        });
+        
+        const newNoteBtn = document.getElementById('newNoteBtn');
+        if (newNoteBtn) newNoteBtn.addEventListener('click', newNote);
+        
+        const notesToggle = document.getElementById('notesToggle');
+        const notesContent = document.getElementById('notesContent');
+        if (notesToggle && notesContent) {
+          notesToggle.addEventListener('click', () => {
+            notesContent.classList.toggle('expanded');
+            notesToggle.textContent = notesContent.classList.contains('expanded') ? '▲' : '▼';
+          });
+        }
+        
+        const textarea = document.getElementById('editorTextarea');
+        if (textarea) textarea.addEventListener('input', handleTextChange);
+        
+        const deleteBtn = document.getElementById('deleteBtn');
+        if (deleteBtn) deleteBtn.addEventListener('click', handleDelete);
+        
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) saveBtn.addEventListener('click', handleSave);
+        
+        const searchBtn = document.getElementById('searchBtn');
+        if (searchBtn) searchBtn.addEventListener('click', searchOpen);
+        
+        const exportBtn = document.getElementById('exportBtn');
+        if (exportBtn) exportBtn.addEventListener('click', handleExport);
+        
+        const shareBtn = document.getElementById('shareBtn');
+        if (shareBtn) shareBtn.addEventListener('click', handleShare);
+        
+        const fontDec = document.getElementById('fontDec');
+        const fontInc = document.getElementById('fontInc');
+        if (fontDec) {
+          fontDec.addEventListener('click', () => {
+            fontSize = Math.max(12, fontSize - 2);
+            if (textarea) textarea.style.fontSize = fontSize + 'px';
+          });
+        }
+        if (fontInc) {
+          fontInc.addEventListener('click', () => {
+            fontSize = Math.min(28, fontSize + 2);
+            if (textarea) textarea.style.fontSize = fontSize + 'px';
+          });
+        }
+        
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.addEventListener('input', handleSearchInput);
+        
+        const closeSearchBtn = document.getElementById('closeSearchBtn');
+        if (closeSearchBtn) closeSearchBtn.addEventListener('click', searchClose);
+        
+        const searchOverlay = document.getElementById('searchOverlay');
+        if (searchOverlay) {
+          searchOverlay.addEventListener('click', (e) => {
+            if (e.target === searchOverlay) searchClose();
+          });
+        }
+        
+        // Install button
+        const installBtn = document.getElementById('installBtn');
+        const dismissInstallBtn = document.getElementById('dismissInstallBtn');
+        const installBanner = document.getElementById('installBanner');
+        
+        if (installBtn) {
+          installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+              deferredPrompt.prompt();
+              const { outcome } = await deferredPrompt.userChoice;
+              if (outcome === 'accepted') {
+                console.log('PWA instalirana');
+              }
+              deferredPrompt = null;
+              if (installBanner) installBanner.classList.remove('show');
+            }
+          });
+        }
+        
+        if (dismissInstallBtn) {
+          dismissInstallBtn.addEventListener('click', () => {
+            if (installBanner) installBanner.classList.remove('show');
+          });
+        }
+        
+        // Check if already installed
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        if (isStandalone && installBanner) {
+          installBanner.classList.remove('show');
+        }
+        
+        // Set initial theme
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        
+        // Initial update
+        updateUI();
+      }
+
+      init();
+    })();
+
+    // Service Worker registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker registered:', reg))
+          .catch(err => console.log('Service Worker error:', err));
+      });
+    }
+  </script>
+</body>
+</html>
